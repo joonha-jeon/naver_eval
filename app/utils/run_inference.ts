@@ -34,57 +34,83 @@ export async function run_inference(
   system_prompt: string, 
   user_input: string,
   clientId: string,
-  clientSecret: string
+  clientSecret: string,
+  modelName: string
 ): Promise<DataRow[]> {
   if (!data || data.length === 0) {
     throw new Error("No data provided for inference")
   }
+  if (!modelName) {
+    throw new Error("Model name is not provided");
+  }
 
   try {
     const row = data[0]
-    const system = system_prompt ? row[system_prompt] ?? "" : ""
-    const text = user_input ? row[user_input] ?? "" : ""
-    
-    const request_data: RequestData = {
-      messages: [{
-        role: "system",
-        content: system
-      }, {
-        role: "user",
-        content: text
-      }],
-      maxTokens: 400,
-      temperature: 0.5,
-      topK: 0,
-      topP: 0.8,
-      repeatPenalty: 5.0,
-      stopBefore: [],
-      includeAiFilters: true,
-      seed: 0
-    }
+    try {
+      const system = system_prompt ? row[system_prompt] ?? "" : ""
+      const text = user_input ? row[user_input] ?? "" : ""
+      
+      const request_data: RequestData = {
+        messages: [{
+          role: "system",
+          content: system
+        }, {
+          role: "user",
+          content: text
+        }],
+        maxTokens: 400,
+        temperature: 0.5,
+        topK: 0,
+        topP: 0.8,
+        repeatPenalty: 5.0,
+        stopBefore: [],
+        includeAiFilters: true,
+        seed: 0
+      }
 
-    const accessToken = await getAccessToken(clientId, clientSecret)
-    
-    const response = await fetch('https://api.hyperclova.ai/v1/chat-completions/HCX-DASH-001', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`
-      },
-      body: JSON.stringify(request_data)
-    })
+      console.log('Inference request:', JSON.stringify({
+        modelName,
+        system,
+        text,
+        request_data
+      }, null, 2));
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
-    }
-
-    const result = await response.json() as APIResponse
-
-    if (result?.status?.code === "20000" && result?.result?.message?.content) {
-      row['assistant'] = result.result.message.content.trim()
-    } else {
-      throw new Error(`Unexpected response format: ${JSON.stringify(result)}`)
+      const accessToken = await getAccessToken(clientId, clientSecret)
+      
+      try {
+        const response = await fetch(`https://api.hyperclova.ai/v1/chat-completions/${modelName}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify(request_data)
+        })
+      
+        if (!response.ok) {
+          const errorBody = await response.text();
+          console.error(`API Error Response: ${response.status} ${response.statusText}`, errorBody);
+          throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
+        }
+      
+        const result = await response.json() as APIResponse
+        
+        console.log('API Response:', JSON.stringify(result, null, 2))
+      
+        if (result?.status?.code === "20000" && result?.result?.message?.content) {
+          row['assistant'] = result.result.message.content.trim()
+        } else {
+          console.error('Unexpected response structure:', result)
+          throw new Error(`Unexpected response format: ${JSON.stringify(result)}`)
+        }
+      } catch (error) {
+        console.error(`Error processing row:`, error)
+        row['assistant'] = `Error occurred during inference: ${error instanceof Error ? error.message : String(error)}`
+        throw error;
+      }
+    } catch (error) {
+      console.error(`Error processing row:`, error)
+      row['assistant'] = `Error occurred during inference: ${error instanceof Error ? error.message : String(error)}`
     }
 
     return [row]
@@ -97,20 +123,15 @@ export async function run_inference(
 async function getAccessToken(clientId: string, clientSecret: string): Promise<string> {
   const response = await fetch('https://api.hyperclova.ai/v1/auth/token?existingToken=true', {
     headers: {
-      'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
+      'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`
     }
   })
 
   if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Failed to get access token: ${response.status}, body: ${errorText}`)
+    throw new Error(`Failed to get access token: ${response.status}`)
   }
 
   const data = await response.json()
-  if (!data.result || !data.result.accessToken) {
-    throw new Error(`Invalid token response: ${JSON.stringify(data)}`)
-  }
-
   return data.result.accessToken
 }
 

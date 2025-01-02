@@ -24,8 +24,20 @@ export function useActionHandlers() {
     augmentationFactor?: number,
     augmentationPrompt?: string,
     selectedColumn?: string,
-    evaluationSettings?: any
+    evaluationSettings?: any,
+    modelName?: string, // Added modelName parameter
   ) => {
+    modelName = modelName || 'HCX-DASH-001'; // Default model name
+    console.log('Action request:', JSON.stringify({
+      action,
+      systemPrompt,
+      userInput,
+      augmentationFactor,
+      augmentationPrompt,
+      selectedColumn,
+      evaluationSettings,
+      modelName
+    }, null, 2));
     setIsLoading(true)
     setError(null)
     setProgress({ current: 0, total: data.length })
@@ -50,36 +62,51 @@ export function useActionHandlers() {
       const results: any[] = []
 
       for (const item of data) {
-        const response = await fetch('/api/llm', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            action, 
-            data: [item], 
-            systemPrompt, 
-            userInput,
-            augmentationFactor, 
-            augmentationPrompt,
-            selectedColumn,
-            evaluationSettings,
-            apiKeys, // Use apiKeys from state
-          }),
-        })
+        try {
+          const response = await fetch('/api/llm', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              action, 
+              data: [item], 
+              systemPrompt, 
+              userInput,
+              augmentationFactor, 
+              augmentationPrompt,
+              selectedColumn,
+              evaluationSettings,
+              apiKeys,
+              modelName,
+            }),
+          })
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
+          if (!response.ok) {
+            const errorBody = await response.text();
+            console.error(`API Error Response: ${response.status} ${response.statusText}`, errorBody);
+            throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
+          }
+
+          const result = await response.json()
+          if (!result || !result.result || !Array.isArray(result.result)) {
+            console.error('Invalid server response:', result);
+            throw new Error('Invalid response from server')
+          }
+
+          results.push(...result.result)
+          processedItems++
+          setProgress({ current: processedItems, total: totalItems })
+        } catch (itemError: unknown) {
+          console.error(`Error processing item:`, itemError);
+          let errorMessage = 'Unknown error occurred';
+          if (itemError instanceof Error) {
+            errorMessage = itemError.message;
+          } else if (typeof itemError === 'string') {
+            errorMessage = itemError;
+          }
+          results.push({ ...item, error: errorMessage });
         }
-
-        const result = await response.json()
-        if (!result || !result.result || !Array.isArray(result.result)) {
-          throw new Error('Invalid response from server')
-        }
-
-        results.push(...result.result)
-        processedItems++
-        setProgress({ current: processedItems, total: totalItems })
       }
 
       // Update data with results

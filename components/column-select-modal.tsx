@@ -3,25 +3,24 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
 
 interface ColumnSelectModalProps {
   isOpen: boolean
   onClose: () => void
-  onConfirm: (systemPrompt: string, userInput: string, apiEndpoint: string) => void
+  onConfirm: (systemPrompt: string, userInput: string, modelName: string) => void
   columns: string[]
 }
 
 export function ColumnSelectModal({ isOpen, onClose, onConfirm, columns }: ColumnSelectModalProps) {
   const [systemPrompt, setSystemPrompt] = React.useState<string>('')
   const [userInput, setUserInput] = React.useState<string>('')
-  const [apiEndpoint, setApiEndpoint] = React.useState<string>('')
+  const [modelName, setModelName] = React.useState<string>('HCX-DASH-001')
 
   const handleConfirm = () => {
     onConfirm(
       systemPrompt === "none" ? "" : systemPrompt,
       userInput === "none" ? "" : userInput,
-      apiEndpoint
+      modelName
     )
     onClose()
   }
@@ -70,16 +69,19 @@ export function ColumnSelectModal({ isOpen, onClose, onConfirm, columns }: Colum
             </Select>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="apiEndpoint" className="text-right">
-              API Endpoint
+            <Label htmlFor="modelName" className="text-right">
+              Model
             </Label>
-            <Input
-              id="apiEndpoint"
-              value={apiEndpoint}
-              onChange={(e) => setApiEndpoint(e.target.value)}
-              placeholder="Enter model name (e.g. HCX-003)"
-              className="col-span-3"
-            />
+            <Select value={modelName} onValueChange={setModelName}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select model" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="HCX-DASH-001">HCX-DASH-001</SelectItem>
+                <SelectItem value="HCX-002">HCX-002</SelectItem>
+                {/* Add more models as needed */}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <DialogFooter>

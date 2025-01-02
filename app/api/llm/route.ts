@@ -7,7 +7,18 @@ export const runtime = 'edge'
 
 export async function POST(request: Request) {
   try {
-    const { action, data, systemPrompt, userInput, augmentationFactor, augmentationPrompt, selectedColumn, evaluationSettings, apiKeys } = await request.json()
+    const { action, data, systemPrompt, userInput, augmentationFactor, augmentationPrompt, selectedColumn, evaluationSettings, apiKeys, modelName } = await request.json()
+
+    console.log('API Route received request:', JSON.stringify({
+      action,
+      systemPrompt,
+      userInput,
+      augmentationFactor,
+      augmentationPrompt,
+      selectedColumn,
+      evaluationSettings,
+      modelName
+    }, null, 2));
 
     if (!action || !data || !Array.isArray(data) || data.length !== 1) {
       return NextResponse.json({ error: 'Invalid request data' }, { status: 400 })
@@ -16,7 +27,7 @@ export async function POST(request: Request) {
     let result
     switch (action) {
       case 'inference':
-        result = await run_inference(data, systemPrompt, userInput, apiKeys.CLIENT_ID, apiKeys.CLIENT_SECRET)
+        result = await run_inference(data, systemPrompt, userInput, apiKeys.CLIENT_ID, apiKeys.CLIENT_SECRET, modelName)
         break
       case 'evaluate':
         result = await evaluate_llm(data, evaluationSettings, apiKeys.OPENAI_API_KEY)
@@ -37,6 +48,8 @@ export async function POST(request: Request) {
     if (!result) {
       throw new Error('Operation failed')
     }
+
+    console.log('API Route sending response:', JSON.stringify(result, null, 2));
 
     return NextResponse.json({ result })
   } catch (error) {
