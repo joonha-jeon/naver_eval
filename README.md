@@ -26,7 +26,7 @@ source myenv/bin/activate   # For macOS/Linux
 First, clone this repository to your local machine:
 
 ```bash
-git clone https://github.com/yenirachel/naver_eval.git
+git clone https://github.com/Eunbi-Cho/naver_eval.git
 cd naver_eval
 ```
 
