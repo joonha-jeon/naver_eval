@@ -25,24 +25,32 @@ export async function POST(request: Request) {
     }
 
     let result
-    switch (action) {
-      case 'inference':
-        result = await run_inference(data, systemPrompt, userInput, apiKeys.CLIENT_ID, apiKeys.CLIENT_SECRET, modelName)
-        break
-      case 'evaluate':
-        result = await evaluate_llm(data, evaluationSettings, apiKeys.OPENAI_API_KEY)
-        break
-      case 'augment':
-        if (!augmentationFactor || !augmentationPrompt || !selectedColumn) {
-          return NextResponse.json({ error: 'Missing augmentation parameters' }, { status: 400 })
-        }
-        if (!apiKeys.OPENAI_API_KEY) {
-          return NextResponse.json({ error: 'OpenAI API key is not provided' }, { status: 400 })
-        }
-        result = await augment_data(data, augmentationFactor, augmentationPrompt, selectedColumn, apiKeys.OPENAI_API_KEY)
-        break
-      default:
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+    try {
+      switch (action) {
+        case 'inference':
+          result = await run_inference(data, systemPrompt, userInput, apiKeys.CLIENT_ID, apiKeys.CLIENT_SECRET, modelName)
+          break
+        case 'evaluate':
+          result = await evaluate_llm(data, evaluationSettings, apiKeys.OPENAI_API_KEY)
+          break
+        case 'augment':
+          if (!augmentationFactor || !augmentationPrompt || !selectedColumn) {
+            return NextResponse.json({ error: 'Missing augmentation parameters' }, { status: 400 })
+          }
+          if (!apiKeys.OPENAI_API_KEY) {
+            return NextResponse.json({ error: 'OpenAI API key is not provided' }, { status: 400 })
+          }
+          result = await augment_data(data, augmentationFactor, augmentationPrompt, selectedColumn, apiKeys.OPENAI_API_KEY)
+          break
+        default:
+          return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+      }
+    } catch (actionError) {
+      console.error(`Error executing ${action}:`, actionError);
+      return NextResponse.json({ 
+        error: actionError instanceof Error ? actionError.message : 'An error occurred during processing',
+        stack: actionError instanceof Error ? actionError.stack : undefined
+      }, { status: 500 });
     }
 
     if (!result) {

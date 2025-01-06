@@ -78,7 +78,7 @@ export function ColumnSelectModal({ isOpen, onClose, onConfirm, columns }: Colum
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="HCX-DASH-001">HCX-DASH-001</SelectItem>
-                <SelectItem value="HCX-002">HCX-002</SelectItem>
+                <SelectItem value="HCX-003">HCX-003</SelectItem>
                 {/* Add more models as needed */}
               </SelectContent>
             </Select>

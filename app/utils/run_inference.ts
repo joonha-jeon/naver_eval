@@ -1,6 +1,7 @@
 interface APIResponse {
   status: {
     code: string;
+    message: string;
   };
   result: {
     message: {
@@ -87,13 +88,21 @@ export async function run_inference(
           body: JSON.stringify(request_data)
         })
       
+        const responseText = await response.text();
+        console.log('API Response Text:', responseText);
+
         if (!response.ok) {
-          const errorBody = await response.text();
-          console.error(`API Error Response: ${response.status} ${response.statusText}`, errorBody);
-          throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
+          console.error(`API Error Response: ${response.status} ${response.statusText}`, responseText);
+          throw new Error(`HTTP error! status: ${response.status}, body: ${responseText}`);
         }
       
-        const result = await response.json() as APIResponse
+        let result: APIResponse;
+        try {
+          result = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('Error parsing API response:', parseError);
+          throw new Error(`Failed to parse API response: ${responseText}`);
+        }
         
         console.log('API Response:', JSON.stringify(result, null, 2))
       
@@ -128,7 +137,9 @@ async function getAccessToken(clientId: string, clientSecret: string): Promise<s
   })
 
   if (!response.ok) {
-    throw new Error(`Failed to get access token: ${response.status}`)
+    const errorBody = await response.text();
+    console.error(`Failed to get access token: ${response.status}`, errorBody);
+    throw new Error(`Failed to get access token: ${response.status}, body: ${errorBody}`);
   }
 
   const data = await response.json()
