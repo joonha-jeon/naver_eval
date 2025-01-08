@@ -98,8 +98,8 @@ export default function AdvancedCSVEditor() {
    setIsModalOpen(true)
  }
 
- const handleModalConfirm = (systemPrompt: string, userInput: string) => {
-   handleAction('inference', [data], headers, setData, setHeaders, setColumnWidths, setColumnTypes, systemPrompt, userInput)
+ const handleModalConfirm = (systemPrompt: string, userInput: string, modelName: string) => {
+   handleAction('inference', [data], headers, setData, setHeaders, setColumnWidths, setColumnTypes, systemPrompt, userInput, undefined, undefined, undefined, undefined, modelName)
  }
 
  const handleAugmentationModal = () => {
