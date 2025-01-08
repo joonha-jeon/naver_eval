@@ -21,12 +21,11 @@ import { LLMEvaluationModal } from './LLMEvaluationModal'
 import { ExpandedCellView } from './expanded-cell-view'
 import { APIKeys, APIKeySettingsModal } from './APIKeySettingsModal';
 
-
 interface RowData {
- [key: string]: string | undefined;
- is_augmented?: string;
- LLM_Eval?: string;
- 'LLM_Eval 근거'?: string;
+  [key: string]: string | number | undefined;
+  is_augmented?: string;
+  LLM_Eval?: string;
+  'LLM_Eval 근거'?: string;
 }
 
 interface ExpandedCellType {
@@ -100,7 +99,7 @@ export default function AdvancedCSVEditor() {
  }
 
  const handleModalConfirm = (systemPrompt: string, userInput: string) => {
-   handleAction('inference', data, headers, setData, setHeaders, setColumnWidths, setColumnTypes, systemPrompt, userInput)
+   handleAction('inference', [data], headers, setData, setHeaders, setColumnWidths, setColumnTypes, systemPrompt, userInput)
  }
 
  const handleAugmentationModal = () => {
@@ -108,9 +107,14 @@ export default function AdvancedCSVEditor() {
  }
 
  const handleAugmentationConfirm = (augmentationFactor: number, augmentationPrompt: string, selectedColumn: string) => {
-   setIsAugmentModalOpen(false)
-   handleAction('augment', data, headers, setData, setHeaders, setColumnWidths, setColumnTypes, undefined, undefined, augmentationFactor, augmentationPrompt, selectedColumn)
- }
+  setIsAugmentModalOpen(false)
+  const batchSize = 10; // Process 10 rows at a time
+  const batches = [];
+  for (let i = 0; i < data.length; i += batchSize) {
+    batches.push(data.slice(i, i + batchSize));
+  }
+  handleAction('augment', batches, headers, setData, setHeaders, setColumnWidths, setColumnTypes, undefined, undefined, augmentationFactor, augmentationPrompt, selectedColumn)
+}
 
  const handleColumnResize = (header: string, width: number) => {
    setColumnWidths(prev => ({ ...prev, [header]: width }))
@@ -132,7 +136,7 @@ export default function AdvancedCSVEditor() {
 
  const handleLLMEvaluationConfirm = (evaluationSettings: EvaluationSettings) => {
    setIsLLMEvaluationModalOpen(false)
-   handleAction('evaluate', data, headers, setData, setHeaders, setColumnWidths, setColumnTypes, undefined, undefined, undefined, undefined, undefined, evaluationSettings)
+   handleAction('evaluate', [data], headers, setData, setHeaders, setColumnWidths, setColumnTypes, undefined, undefined, undefined, undefined, undefined, evaluationSettings)
  }
 
  const handleCellClick = (rowIndex: number, header: string, content: string | undefined) => {
@@ -268,7 +272,7 @@ export default function AdvancedCSVEditor() {
                              <div className="truncate flex-grow">
                                {columnTypes[header]?.type === 'dropdown' ? (
                                  <Select
-                                   value={row[header] || ''}
+                                   value={row[header]?.toString() || ''}
                                    onValueChange={(value) => handleCellEdit(rowIndex, header, value)}
                                  >
                                    <SelectTrigger className="w-full">
@@ -284,7 +288,7 @@ export default function AdvancedCSVEditor() {
                                  </Select>
                                ) : (
                                  <Input
-                                   value={row[header] || ''}
+                                   value={row[header]?.toString() || ''}
                                    onChange={(e) => handleCellEdit(rowIndex, header, e.target.value)}
                                    className="border-0 p-0 focus:ring-0 w-full"
                                    readOnly={row.is_augmented === 'Yes'}
@@ -296,7 +300,7 @@ export default function AdvancedCSVEditor() {
                                  variant="ghost"
                                  size="icon"
                                  className="ml-2"
-                                 onClick={() => handleCellClick(rowIndex, header, row[header] || '')}
+                                 onClick={() => handleCellClick(rowIndex, header, row[header]?.toString() || '')}
                                >
                                  <ArrowUpRight className="h-4 w-4" />
                                </Button>

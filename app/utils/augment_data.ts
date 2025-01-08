@@ -10,13 +10,11 @@ export async function augment_data(data: any[], augmentationFactor: number, augm
 
   const client = new OpenAI({ apiKey: openaiApiKey });
 
-  const augmented_data = []
-  for (const row of data) {
-    augmented_data.push(row)  // Keep the original row
-    
+  const augmentRow = async (row: any) => {
     const text = row[selectedColumn] || ""
-    
-    for (let i = 0; i < augmentationFactor - 1; i++) {  // Create new rows
+    const augmentedRows = [{ ...row, is_augmented: "No" }];
+
+    const augmentationPromises = Array(augmentationFactor - 1).fill(null).map(async () => {
       try {
         const completion = await client.chat.completions.create({
           model: "gpt-4",
@@ -28,20 +26,18 @@ export async function augment_data(data: any[], augmentationFactor: number, augm
         
         const generated_text = completion.choices[0].message.content
 
-        const new_row: any = { ...row, is_augmented: "Yes" }
-        new_row[selectedColumn] = generated_text
-
-        augmented_data.push(new_row)
+        return { ...row, [selectedColumn]: generated_text, is_augmented: "Yes" };
       } catch (error) {
         console.error(`Error augmenting row: ${error}`)
+        return null;
       }
-    }
+    });
+
+    const augmentedResults = await Promise.all(augmentationPromises);
+    return augmentedRows.concat(augmentedResults.filter(Boolean));
   }
 
-  for (const row of data) {
-    row["is_augmented"] = "No"
-  }
-
-  return augmented_data
+  const allAugmentedData = await Promise.all(data.map(augmentRow));
+  return allAugmentedData.flat();
 }
 

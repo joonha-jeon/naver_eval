@@ -1,13 +1,10 @@
 import { useState, useCallback } from 'react'
 import Papa, { ParseResult, ParseConfig } from 'papaparse'
 
-interface BaseRow {
- [key: string]: string | undefined;
-}
-
-interface RowData extends BaseRow {
- LLM_Eval: string;
- Human_Eval: string;
+export interface RowData {
+ [key: string]: string | number | undefined;
+ LLM_Eval?: string;
+ Human_Eval?: string;
  is_augmented?: string;
 }
 
@@ -30,27 +27,21 @@ export function useCSVData() {
        const csv = e.target?.result;
        if (typeof csv === 'string') {
          try {
-           const config: ParseConfig<string[]> = {
-             header: false,
-             dynamicTyping: false,
+           const config: ParseConfig<RowData> = {
+             header: true,
+             dynamicTyping: true,
              skipEmptyLines: true,
-             complete: (results: ParseResult<string[]>) => {
+             complete: (results: ParseResult<RowData>) => {
                if (Array.isArray(results.data) && results.data.length > 0) {
-                 const parsedHeaders = results.data[0]
+                 const parsedHeaders = Object.keys(results.data[0])
                  const newHeaders = [...parsedHeaders, 'LLM_Eval', 'Human_Eval']
                  setHeaders(newHeaders)
                  
-                 const parsedData = results.data.slice(1).map((row) => {
-                   const rowData = {
-                     LLM_Eval: '',
-                     Human_Eval: '',
-                   } as RowData
-                   
-                   parsedHeaders.forEach((header, index) => {
-                     rowData[header] = row[index] || ''
-                   })
-                   return rowData
-                 })
+                 const parsedData = results.data.map((row) => ({
+                   ...row,
+                   LLM_Eval: '',
+                   Human_Eval: '',
+                 }))
                  
                  setData(parsedData)
                  setColumnWidths(Object.fromEntries(newHeaders.map(header => [header, 200])))
@@ -131,3 +122,4 @@ export function useCSVData() {
    handleDownload
  }
 }
+

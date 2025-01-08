@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { APIKeys } from '@/components/APIKeySettingsModal';
+import { RowData } from '@/hooks/useCSVData';
 
 export function useActionHandlers() {
   const [isLoading, setIsLoading] = useState(false)
@@ -13,9 +14,9 @@ export function useActionHandlers() {
 
   const handleAction = useCallback(async (
     action: 'inference' | 'evaluate' | 'augment',
-    data: any[],
+    data: RowData[][],
     headers: string[],
-    setData: React.Dispatch<React.SetStateAction<any[]>>,
+    setData: React.Dispatch<React.SetStateAction<RowData[]>>,
     setHeaders: React.Dispatch<React.SetStateAction<string[]>>,
     setColumnWidths: React.Dispatch<React.SetStateAction<{ [key: string]: number }>>,
     setColumnTypes: React.Dispatch<React.SetStateAction<{ [key: string]: { type: 'text' | 'dropdown', scoreRange?: number } }>>,
@@ -25,9 +26,8 @@ export function useActionHandlers() {
     augmentationPrompt?: string,
     selectedColumn?: string,
     evaluationSettings?: any,
-    modelName?: string, // Added modelName parameter
+    modelName?: string,
   ) => {
-    modelName = modelName || 'HCX-DASH-001'; // Default model name
     console.log('Action request:', JSON.stringify({
       action,
       systemPrompt,
@@ -36,18 +36,17 @@ export function useActionHandlers() {
       augmentationPrompt,
       selectedColumn,
       evaluationSettings,
-      modelName
+      ...(action === 'inference' ? { modelName } : {})
     }, null, 2));
     setIsLoading(true)
     setError(null)
-    setProgress({ current: 0, total: data.length })
+    setProgress({ current: 0, total: data.flat().length })
     
     try {
       if (!data || !Array.isArray(data) || data.length === 0) {
         throw new Error('Invalid or empty data array')
       }
 
-      // Add is_augmented column first if it's an augmentation action
       if (action === 'augment' && !headers.includes('is_augmented')) {
         setHeaders(prevHeaders => ['is_augmented', ...prevHeaders])
         setColumnWidths(prev => ({ is_augmented: 100, ...prev }))
@@ -57,11 +56,11 @@ export function useActionHandlers() {
         }))
       }
 
-      const totalItems = data.length
+      const totalItems = data.flat().length
       let processedItems = 0
-      const results: any[] = []
+      const results: RowData[] = []
 
-      for (const item of data) {
+      for (const batch of data) {
         try {
           const response = await fetch('/api/llm', {
             method: 'POST',
@@ -70,7 +69,7 @@ export function useActionHandlers() {
             },
             body: JSON.stringify({ 
               action, 
-              data: [item], 
+              data: batch, 
               systemPrompt, 
               userInput,
               augmentationFactor, 
@@ -95,21 +94,20 @@ export function useActionHandlers() {
           }
 
           results.push(...result.result)
-          processedItems++
+          processedItems += batch.length
           setProgress({ current: processedItems, total: totalItems })
         } catch (itemError: unknown) {
-          console.error(`Error processing item:`, itemError);
+          console.error(`Error processing batch:`, itemError);
           let errorMessage = 'Unknown error occurred';
           if (itemError instanceof Error) {
             errorMessage = itemError.message;
           } else if (typeof itemError === 'string') {
             errorMessage = itemError;
           }
-          results.push({ ...item, error: errorMessage });
+          results.push(...batch.map((item: RowData) => ({ ...item, error: errorMessage })));
         }
       }
 
-      // Update data with results
       setData(results)
 
       // Handle column updates for different actions

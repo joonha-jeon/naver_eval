@@ -17,10 +17,10 @@ export async function POST(request: Request) {
       augmentationPrompt,
       selectedColumn,
       evaluationSettings,
-      modelName
+      ...(action === 'inference' ? { modelName } : {})
     }, null, 2));
 
-    if (!action || !data || !Array.isArray(data) || data.length !== 1) {
+    if (!action || !data || !Array.isArray(data) || data.length === 0) {
       return NextResponse.json({ error: 'Invalid request data' }, { status: 400 })
     }
 
@@ -28,7 +28,8 @@ export async function POST(request: Request) {
     try {
       switch (action) {
         case 'inference':
-          result = await run_inference(data, systemPrompt, userInput, apiKeys.CLIENT_ID, apiKeys.CLIENT_SECRET, modelName)
+          result = await Promise.all(data.map(row => run_inference([row], systemPrompt, userInput, apiKeys.CLIENT_ID, apiKeys.CLIENT_SECRET, modelName)))
+          result = result.flat()
           break
         case 'evaluate':
           result = await evaluate_llm(data, evaluationSettings, apiKeys.OPENAI_API_KEY)
