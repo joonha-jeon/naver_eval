@@ -1,3 +1,5 @@
+import { ChatCompletionExecutor } from './chatCompletionExecutor'
+
 interface APIResponse {
   status: {
     code: string;
@@ -46,103 +48,60 @@ export async function run_inference(
   }
 
   try {
-    const row = data[0]
-    try {
-      const system = system_prompt ? row[system_prompt] ?? "" : ""
-      const text = user_input ? row[user_input] ?? "" : ""
-      
-      const request_data: RequestData = {
-        messages: [{
-          role: "system",
-          content: system
-        }, {
-          role: "user",
-          content: text
-        }],
-        maxTokens: 400,
-        temperature: 0.5,
-        topK: 0,
-        topP: 0.8,
-        repeatPenalty: 5.0,
-        stopBefore: [],
-        includeAiFilters: true,
-        seed: 0
-      }
-
-      console.log('Inference request:', JSON.stringify({
-        modelName,
-        system,
-        text,
-        request_data
-      }, null, 2));
-
-      const accessToken = await getAccessToken(clientId, clientSecret)
-      
+    const chatCompletionExecutor = new ChatCompletionExecutor(clientId, clientSecret);
+    
+    const processedData = await Promise.all(data.map(async (row) => {
       try {
-        const response = await fetch(`https://api.hyperclova.ai/v1/chat-completions/${modelName}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: JSON.stringify(request_data)
-        })
-      
-        const responseText = await response.text();
-        console.log('API Response Text:', responseText);
+        const system = system_prompt ? row[system_prompt] ?? "" : ""
+        const text = user_input ? row[user_input] ?? "" : ""
+        
+        const request_data: RequestData = {
+          messages: [{
+            role: "system",
+            content: system
+          }, {
+            role: "user",
+            content: text
+          }],
+          maxTokens: 400,
+          temperature: 0.5,
+          topK: 0,
+          topP: 0.8,
+          repeatPenalty: 5.0,
+          stopBefore: [],
+          includeAiFilters: true,
+          seed: 0
+        }
 
-        if (!response.ok) {
-          console.error(`API Error Response: ${response.status} ${response.statusText}`, responseText);
-          throw new Error(`HTTP error! status: ${response.status}, body: ${responseText}`);
-        }
-      
-        let result: APIResponse;
-        try {
-          result = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('Error parsing API response:', parseError);
-          throw new Error(`Failed to parse API response: ${responseText}`);
-        }
+        console.log('Inference request:', JSON.stringify({
+          modelName,
+          system,
+          text,
+          request_data
+        }, null, 2));
+
+        const result = await chatCompletionExecutor.execute(request_data);
         
         console.log('API Response:', JSON.stringify(result, null, 2))
       
-        if (result?.status?.code === "20000" && result?.result?.message?.content) {
+        if (result?.result?.message?.content) {
           row['assistant'] = result.result.message.content.trim()
         } else {
           console.error('Unexpected response structure:', result)
           throw new Error(`Unexpected response format: ${JSON.stringify(result)}`)
         }
+
+        return row;
       } catch (error) {
         console.error(`Error processing row:`, error)
-        row['assistant'] = `Error occurred during inference: ${error instanceof Error ? error.message : String(error)}`
-        throw error;
+        return { ...row, assistant: `Error occurred during inference: ${error instanceof Error ? error.message : String(error)}` }
       }
-    } catch (error) {
-      console.error(`Error processing row:`, error)
-      row['assistant'] = `Error occurred during inference: ${error instanceof Error ? error.message : String(error)}`
-    }
+    }));
 
-    return [row]
+    return processedData;
   } catch (error) {
     console.error(`Error in run_inference:`, error)
     throw error
   }
-}
-
-async function getAccessToken(clientId: string, clientSecret: string): Promise<string> {
-  const response = await fetch('https://api.hyperclova.ai/v1/auth/token?existingToken=true', {
-    headers: {
-      'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`
-    }
-  })
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error(`Failed to get access token: ${response.status}`, errorBody);
-    throw new Error(`Failed to get access token: ${response.status}, body: ${errorBody}`);
-  }
-
-  const data = await response.json()
-  return data.result.accessToken
 }
 

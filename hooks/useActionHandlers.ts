@@ -56,10 +56,12 @@ export function useActionHandlers() {
         }))
       }
 
-      const totalItems = data.length
-      let processedItems = 0
+      const batchSize = 10; // 배치 크기 설정
+      const totalItems = data.length;
+      let processedItems = 0;
+      const results: RowData[] = [];
 
-      const processItem = async (item: RowData, index: number) => {
+      const processBatch = async (batch: RowData[]) => {
         try {
           const response = await fetch('/api/llm', {
             method: 'POST',
@@ -68,7 +70,7 @@ export function useActionHandlers() {
             },
             body: JSON.stringify({ 
               action, 
-              data: [item], 
+              data: batch, 
               systemPrompt, 
               userInput,
               augmentationFactor, 
@@ -92,27 +94,21 @@ export function useActionHandlers() {
             throw new Error('Invalid response from server')
           }
 
-          processedItems++
+          processedItems += batch.length;
           setProgress({ current: processedItems, total: totalItems })
 
-          if (action === 'augment') {
-            return result.result;  // 증강된 데이터 배열 반환
-          }
-          return result.result[0];
-        } catch (itemError: unknown) {
-          console.error(`Error processing item ${index}:`, itemError);
-          let errorMessage = 'Unknown error occurred';
-          if (itemError instanceof Error) {
-            errorMessage = itemError.message;
-          } else if (typeof itemError === 'string') {
-            errorMessage = itemError;
-          }
-          return { ...item, error: errorMessage };
+          return result.result;
+        } catch (batchError) {
+          console.error(`Error processing batch:`, batchError);
+          return batch.map(item => ({ ...item, error: 'Error occurred during processing' }));
         }
       }
 
-      const promises = data.map((item, index) => processItem(item, index))
-      const results = await Promise.all(promises)
+      for (let i = 0; i < data.length; i += batchSize) {
+        const batch = data.slice(i, i + batchSize);
+        const batchResults = await processBatch(batch);
+        results.push(...batchResults);
+      }
 
       if (action === 'augment') {
         const augmentedData = results.flatMap(item => {
@@ -126,7 +122,7 @@ export function useActionHandlers() {
         });
         setData(augmentedData);
       } else {
-        setData(results)
+        setData(results);
       }
 
       // Handle column updates for different actions
