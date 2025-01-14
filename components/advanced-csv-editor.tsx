@@ -99,7 +99,7 @@ export default function AdvancedCSVEditor() {
  }
 
  const handleModalConfirm = (systemPrompt: string, userInput: string, modelName: string) => {
-   handleAction('inference', [data], headers, setData, setHeaders, setColumnWidths, setColumnTypes, systemPrompt, userInput, undefined, undefined, undefined, undefined, modelName)
+   handleAction('inference', data, headers, setData, setHeaders, setColumnWidths, setColumnTypes, systemPrompt, userInput, undefined, undefined, undefined, undefined, modelName)
  }
 
  const handleAugmentationModal = () => {
@@ -108,12 +108,7 @@ export default function AdvancedCSVEditor() {
 
  const handleAugmentationConfirm = (augmentationFactor: number, augmentationPrompt: string, selectedColumn: string) => {
   setIsAugmentModalOpen(false)
-  const batchSize = 10; // Process 10 rows at a time
-  const batches = [];
-  for (let i = 0; i < data.length; i += batchSize) {
-    batches.push(data.slice(i, i + batchSize));
-  }
-  handleAction('augment', batches, headers, setData, setHeaders, setColumnWidths, setColumnTypes, undefined, undefined, augmentationFactor, augmentationPrompt, selectedColumn)
+  handleAction('augment', data, headers, setData, setHeaders, setColumnWidths, setColumnTypes, undefined, undefined, augmentationFactor, augmentationPrompt, selectedColumn)
 }
 
  const handleColumnResize = (header: string, width: number) => {
@@ -121,11 +116,11 @@ export default function AdvancedCSVEditor() {
  }
 
  const getRowClassName = (row: RowData) => {
-   if (row.LLM_Eval === 'Error') {
-     return 'bg-red-100'
-   }
-   return row.is_augmented === 'Yes' ? 'bg-blue-50' : ''
- }
+  if (row.LLM_Eval === 'Error') {
+    return 'bg-red-100';
+  }
+  return row.is_augmented === 'Yes' ? 'bg-blue-50' : '';
+}
 
  useEffect(() => {
    if (tableRef.current) {
@@ -136,7 +131,7 @@ export default function AdvancedCSVEditor() {
 
  const handleLLMEvaluationConfirm = (evaluationSettings: EvaluationSettings) => {
    setIsLLMEvaluationModalOpen(false)
-   handleAction('evaluate', [data], headers, setData, setHeaders, setColumnWidths, setColumnTypes, undefined, undefined, undefined, undefined, undefined, evaluationSettings)
+   handleAction('evaluate', data, headers, setData, setHeaders, setColumnWidths, setColumnTypes, undefined, undefined, undefined, undefined, undefined, evaluationSettings)
  }
 
  const handleCellClick = (rowIndex: number, header: string, content: string | undefined) => {
@@ -257,6 +252,11 @@ export default function AdvancedCSVEditor() {
                          </div>
                        </th>
                      ))}
+                     {headers.includes('is_augmented') && (
+                       <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                         증강 여부
+                       </th>
+                     )}
                    </tr>
                  </thead>
                  <tbody className="divide-y divide-gray-200 bg-white">
@@ -308,6 +308,11 @@ export default function AdvancedCSVEditor() {
                            </div>
                          </td>
                        ))}
+                       {headers.includes('is_augmented') && (
+                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                           {row.is_augmented}
+                         </td>
+                       )}
                      </tr>
                    ))}
                  </tbody>

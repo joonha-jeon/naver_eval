@@ -28,8 +28,7 @@ export async function POST(request: Request) {
     try {
       switch (action) {
         case 'inference':
-          result = await Promise.all(data.map(row => run_inference([row], systemPrompt, userInput, apiKeys.CLIENT_ID, apiKeys.CLIENT_SECRET, modelName)))
-          result = result.flat()
+          result = await run_inference(data, systemPrompt, userInput, apiKeys.CLIENT_ID, apiKeys.CLIENT_SECRET, modelName)
           break
         case 'evaluate':
           result = await evaluate_llm(data, evaluationSettings, apiKeys.OPENAI_API_KEY)

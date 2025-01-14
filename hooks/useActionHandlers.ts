@@ -14,7 +14,7 @@ export function useActionHandlers() {
 
   const handleAction = useCallback(async (
     action: 'inference' | 'evaluate' | 'augment',
-    data: RowData[][],
+    data: RowData[],
     headers: string[],
     setData: React.Dispatch<React.SetStateAction<RowData[]>>,
     setHeaders: React.Dispatch<React.SetStateAction<string[]>>,
@@ -40,7 +40,7 @@ export function useActionHandlers() {
     }, null, 2));
     setIsLoading(true)
     setError(null)
-    setProgress({ current: 0, total: data.flat().length })
+    setProgress({ current: 0, total: data.length })
     
     try {
       if (!data || !Array.isArray(data) || data.length === 0) {
@@ -56,11 +56,10 @@ export function useActionHandlers() {
         }))
       }
 
-      const totalItems = data.flat().length
+      const totalItems = data.length
       let processedItems = 0
-      const results: RowData[] = []
 
-      for (const batch of data) {
+      const processItem = async (item: RowData, index: number) => {
         try {
           const response = await fetch('/api/llm', {
             method: 'POST',
@@ -69,7 +68,7 @@ export function useActionHandlers() {
             },
             body: JSON.stringify({ 
               action, 
-              data: batch, 
+              data: [item], 
               systemPrompt, 
               userInput,
               augmentationFactor, 
@@ -93,22 +92,42 @@ export function useActionHandlers() {
             throw new Error('Invalid response from server')
           }
 
-          results.push(...result.result)
-          processedItems += batch.length
+          processedItems++
           setProgress({ current: processedItems, total: totalItems })
+
+          if (action === 'augment') {
+            return result.result;  // 증강된 데이터 배열 반환
+          }
+          return result.result[0];
         } catch (itemError: unknown) {
-          console.error(`Error processing batch:`, itemError);
+          console.error(`Error processing item ${index}:`, itemError);
           let errorMessage = 'Unknown error occurred';
           if (itemError instanceof Error) {
             errorMessage = itemError.message;
           } else if (typeof itemError === 'string') {
             errorMessage = itemError;
           }
-          results.push(...batch.map((item: RowData) => ({ ...item, error: errorMessage })));
+          return { ...item, error: errorMessage };
         }
       }
 
-      setData(results)
+      const promises = data.map((item, index) => processItem(item, index))
+      const results = await Promise.all(promises)
+
+      if (action === 'augment') {
+        const augmentedData = results.flatMap(item => {
+          if (Array.isArray(item)) {
+            return item.map(subItem => ({
+              ...subItem,
+              is_augmented: subItem.is_augmented || 'No'
+            }));
+          }
+          return [{...item, is_augmented: 'No'}];
+        });
+        setData(augmentedData);
+      } else {
+        setData(results)
+      }
 
       // Handle column updates for different actions
       if (action === 'inference' && !headers.includes('assistant')) {
