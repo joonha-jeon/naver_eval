@@ -20,6 +20,7 @@ import { ProgressBar } from './progress-bar'
 import { LLMEvaluationModal } from './LLMEvaluationModal'
 import { ExpandedCellView } from './expanded-cell-view'
 import { APIKeys, APIKeySettingsModal } from './APIKeySettingsModal';
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface RowData {
   [key: string]: string | number | undefined;
@@ -93,6 +94,9 @@ export default function AdvancedCSVEditor() {
  const [expandedCell, setExpandedCell] = useState<ExpandedCellType | null>(null)
  const [isAPIKeyModalOpen, setIsAPIKeyModalOpen] = useState(true)
  const [isAPIKeySet, setIsAPIKeySet] = useState(false)
+ const [selectedRows, setSelectedRows] = useState<number[]>([]) // Added
+ const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false) // Added
+
  // const [tableWidth, setTableWidth] = useState<number>(0); // Removed
 
  const handleInference = () => {
@@ -116,11 +120,11 @@ export default function AdvancedCSVEditor() {
    setColumnWidths(prev => ({ ...prev, [header]: width }))
  }
 
- const getRowClassName = (row: RowData) => {
+ const getRowClassName = (row: RowData, rowIndex: number) => { // Added rowIndex parameter
    if (row.LLM_Eval === 'Error') {
      return 'bg-red-100'
    }
-   return row.is_augmented === 'Yes' ? 'bg-blue-50' : ''
+   return (row.is_augmented === 'Yes' ? 'bg-blue-50' : '') + (selectedRows.includes(rowIndex) ? ' bg-gray-100' : ''); // Added selectedRows check
  }
 
  useEffect(() => {
@@ -180,6 +184,24 @@ export default function AdvancedCSVEditor() {
     }
   }
 
+ const handleRowSelection = (rowIndex: number) => {
+  setSelectedRows(prev => 
+    prev.includes(rowIndex)
+      ? prev.filter(i => i !== rowIndex)
+      : [...prev, rowIndex]
+  )
+}
+
+const handleDeleteSelectedRows = () => { // Modified
+  setIsDeleteAlertOpen(true)
+}
+
+const confirmDeleteSelectedRows = () => { // Added
+  setData(prevData => prevData.filter((_, index) => !selectedRows.includes(index)))
+  setSelectedRows([])
+  setIsDeleteAlertOpen(false)
+}
+
  return (
    <div className="container mx-auto p-4">
      <Button
@@ -233,10 +255,19 @@ export default function AdvancedCSVEditor() {
            <Button onClick={() => setIsVisualizationModalOpen(true)} className="bg-purple-500 hover:bg-purple-600">
              평가 그래프 보기
            </Button>
+           {/* Removed Button */}
          </div>
          <div className="flex space-x-4 mb-6">
            <Button onClick={handleDownload} variant="outline">CSV 다운로드</Button>
            <Button onClick={() => setIsAddColumnModalOpen(true)} variant="outline">열 추가</Button>
+           <Button 
+             onClick={handleDeleteSelectedRows} 
+             variant="outline"
+             className="text-red-500 hover:bg-red-50"
+             disabled={isLoading || selectedRows.length === 0}
+           >
+             선택된 행 삭제 ({selectedRows.length})
+           </Button>
          </div>
          <div className="overflow-x-auto border border-gray-200 rounded-lg" style={{ maxWidth: '100%' }}>
            <div className="inline-block min-w-full align-middle">
@@ -244,6 +275,18 @@ export default function AdvancedCSVEditor() {
                <table className="min-w-full divide-y divide-gray-300" style={{ minWidth: `${headers.reduce((sum, header) => sum + columnWidths[header], 0)}px` }}> {/* Updated table */}
                  <thead className="bg-gray-50">
                    <tr>
+                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                       <Checkbox
+                         checked={selectedRows.length === data.length}
+                         onCheckedChange={(checked) => {
+                           if (checked) {
+                             setSelectedRows(data.map((_, index) => index))
+                           } else {
+                             setSelectedRows([])
+                           }
+                         }}
+                       />
+                     </th>
                      {headers.map((header, index) => (
                        <th key={index} scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 relative" style={{ width: `${columnWidths[header]}px`, minWidth: `${columnWidths[header]}px` }}>
                          <div className="flex items-center justify-between pr-4">
@@ -271,7 +314,13 @@ export default function AdvancedCSVEditor() {
                  </thead>
                  <tbody className="divide-y divide-gray-200 bg-white">
                    {data.map((row: RowData, rowIndex) => (
-                     <tr key={rowIndex} className={getRowClassName(row)}>
+                     <tr key={rowIndex} className={getRowClassName(row, rowIndex)}> {/* Pass rowIndex to getRowClassName */}
+                       <td className="px-3 py-4">
+                         <Checkbox
+                           checked={selectedRows.includes(rowIndex)}
+                           onCheckedChange={() => handleRowSelection(rowIndex)}
+                         />
+                       </td>
                        {headers.map((header, cellIndex) => (
                          <td
                            key={cellIndex}
@@ -418,6 +467,20 @@ export default function AdvancedCSVEditor() {
         onSave={handleAPIKeySave}
         initialKeys={apiKeys}
       />
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}> {/* Added */}
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>선택한 행 삭제</AlertDialogTitle>
+            <AlertDialogDescription>
+              정말로 선택한 {selectedRows.length}개의 행을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsDeleteAlertOpen(false)}>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteSelectedRows}>삭제</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog> {/* Added */}
     </div>
   )
 }
