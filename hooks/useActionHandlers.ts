@@ -94,10 +94,18 @@ export function useActionHandlers() {
             throw new Error('Invalid response from server')
           }
 
+          // 증강된 데이터의 is_augmented 값을 확인하고 설정합니다.
+          const processedResult = result.result.map((item: any) => {
+            if (action === 'augment' && item.is_augmented === undefined) {
+              return { ...item, is_augmented: 'Yes' };
+            }
+            return item;
+          });
+
           processedItems += batch.length;
           setProgress({ current: processedItems, total: totalItems })
 
-          return result.result;
+          return processedResult;
         } catch (batchError) {
           console.error(`Error processing batch:`, batchError);
           return batch.map(item => ({ ...item, error: 'Error occurred during processing' }));
@@ -118,7 +126,7 @@ export function useActionHandlers() {
               is_augmented: subItem.is_augmented || 'No'
             }));
           }
-          return [{...item, is_augmented: 'No'}];
+          return item;  // 이 부분을 수정했습니다.
         });
         setData(augmentedData);
       } else {

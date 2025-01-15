@@ -93,6 +93,7 @@ export default function AdvancedCSVEditor() {
  const [expandedCell, setExpandedCell] = useState<ExpandedCellType | null>(null)
  const [isAPIKeyModalOpen, setIsAPIKeyModalOpen] = useState(true)
  const [isAPIKeySet, setIsAPIKeySet] = useState(false)
+ // const [tableWidth, setTableWidth] = useState<number>(0); // Removed
 
  const handleInference = () => {
    setIsModalOpen(true)
@@ -116,18 +117,32 @@ export default function AdvancedCSVEditor() {
  }
 
  const getRowClassName = (row: RowData) => {
-  if (row.LLM_Eval === 'Error') {
-    return 'bg-red-100';
-  }
-  return row.is_augmented === 'Yes' ? 'bg-blue-50' : '';
-}
+   if (row.LLM_Eval === 'Error') {
+     return 'bg-red-100'
+   }
+   return row.is_augmented === 'Yes' ? 'bg-blue-50' : ''
+ }
 
  useEffect(() => {
-   if (tableRef.current) {
-     const tableWidth = headers.reduce((sum, header) => sum + (columnWidths[header] || 0), 0)
-     tableRef.current.style.width = `${tableWidth}px`
-   }
- }, [columnWidths, headers])
+   const calculateColumnWidth = (header: string) => {
+     let width = 100;
+     width = Math.max(width, header.length * 10);
+     data.forEach(row => {
+       const cellContent = row[header]?.toString() || '';
+       width = Math.max(width, cellContent.length * 8);
+     });
+     return Math.min(width, 300);
+   };
+
+   const newColumnWidths = headers.reduce((acc, header) => {
+     acc[header] = calculateColumnWidth(header);
+     return acc;
+   }, {} as { [key: string]: number });
+
+   setColumnWidths(newColumnWidths);
+
+   // setTableWidth(newTableWidth); // Removed
+ }, [headers, data]);
 
  const handleLLMEvaluationConfirm = (evaluationSettings: EvaluationSettings) => {
    setIsLLMEvaluationModalOpen(false)
@@ -223,10 +238,10 @@ export default function AdvancedCSVEditor() {
            <Button onClick={handleDownload} variant="outline">CSV 다운로드</Button>
            <Button onClick={() => setIsAddColumnModalOpen(true)} variant="outline">열 추가</Button>
          </div>
-         <div className="overflow-x-auto border border-gray-200 rounded-lg">
+         <div className="overflow-x-auto border border-gray-200 rounded-lg" style={{ maxWidth: '100%' }}>
            <div className="inline-block min-w-full align-middle">
-             <div ref={tableRef} className="overflow-hidden shadow ring-1 ring-black ring-opacity-5">
-               <table className="min-w-full divide-y divide-gray-300">
+             <div ref={tableRef} className="overflow-x-auto shadow ring-1 ring-black ring-opacity-5"> {/* Updated table container */}
+               <table className="min-w-full divide-y divide-gray-300" style={{ minWidth: `${headers.reduce((sum, header) => sum + columnWidths[header], 0)}px` }}> {/* Updated table */}
                  <thead className="bg-gray-50">
                    <tr>
                      {headers.map((header, index) => (
@@ -252,11 +267,6 @@ export default function AdvancedCSVEditor() {
                          </div>
                        </th>
                      ))}
-                     {headers.includes('is_augmented') && (
-                       <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                         증강 여부
-                       </th>
-                     )}
                    </tr>
                  </thead>
                  <tbody className="divide-y divide-gray-200 bg-white">
@@ -308,11 +318,6 @@ export default function AdvancedCSVEditor() {
                            </div>
                          </td>
                        ))}
-                       {headers.includes('is_augmented') && (
-                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                           {row.is_augmented}
-                         </td>
-                       )}
                      </tr>
                    ))}
                  </tbody>
