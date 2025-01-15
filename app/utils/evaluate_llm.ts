@@ -1,4 +1,5 @@
 import { OpenAI } from 'openai'
+import { APIKeys } from '@/components/APIKeySettingsModal';
 
 interface EvaluationSettings {
   model: string
@@ -17,8 +18,16 @@ interface EvaluatedRow extends DataRow {
   LLM_Eval: string
 }
 
-export async function evaluate_llm(data: DataRow[], evaluationSettings: EvaluationSettings, openaiApiKey: string): Promise<EvaluatedRow[]> {
-  const openai = new OpenAI({ apiKey: openaiApiKey })
+export async function evaluate_llm(data: DataRow[], evaluationSettings: EvaluationSettings, apiKeys: APIKeys): Promise<EvaluatedRow[]> {
+  if (!apiKeys || !apiKeys.providers) {
+    throw new Error("API keys are not provided or invalid");
+  }
+
+  const openaiProvider = apiKeys.providers.find(provider => provider.name === 'openai');
+  if (!openaiProvider || !openaiProvider.bearerToken) {
+    throw new Error("OpenAI API key is not provided");
+  }
+  const openai = new OpenAI({ apiKey: openaiProvider.bearerToken });
 
   const evaluatedData = await Promise.all(data.map(async (row) => {
     try {

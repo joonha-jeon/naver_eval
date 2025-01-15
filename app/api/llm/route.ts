@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server'
 import { run_inference } from '@/app/utils/run_inference'
 import { evaluate_llm } from '@/app/utils/evaluate_llm'
 import { augment_data } from '@/app/utils/augment_data'
+import { APIKeys } from '@/components/APIKeySettingsModal'
 
 export const runtime = 'edge'
 
 export async function POST(request: Request) {
   try {
-    const { action, data, systemPrompt, userInput, augmentationFactor, augmentationPrompt, selectedColumn, evaluationSettings, apiKeys, modelName } = await request.json()
+    const { action, data, systemPrompt, userInput, augmentationFactor, augmentationPrompt, selectedColumn, evaluationSettings, apiKeys, modelName, hostUrl, selectedProvider } = await request.json()
 
     console.log('API Route received request:', JSON.stringify({
       action,
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
       augmentationPrompt,
       selectedColumn,
       evaluationSettings,
+      apiKeys,
       ...(action === 'inference' ? { modelName } : {})
     }, null, 2));
 
@@ -24,23 +26,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid request data' }, { status: 400 })
     }
 
+    if (!apiKeys || !apiKeys.providers) {
+      return NextResponse.json({ error: 'API keys are not provided or invalid' }, { status: 400 })
+    }
+
     let result
     try {
       switch (action) {
         case 'inference':
-          result = await run_inference(data, systemPrompt, userInput, apiKeys.CLIENT_ID, apiKeys.CLIENT_SECRET, modelName)
+          result = await run_inference(
+            data, 
+            systemPrompt, 
+            userInput, 
+            apiKeys, 
+            hostUrl, 
+            modelName, 
+            selectedProvider
+          )
           break
         case 'evaluate':
-          result = await evaluate_llm(data, evaluationSettings, apiKeys.OPENAI_API_KEY)
+          result = await evaluate_llm(data, evaluationSettings, apiKeys);
           break
         case 'augment':
           if (!augmentationFactor || !augmentationPrompt || !selectedColumn) {
-            return NextResponse.json({ error: 'Missing augmentation parameters' }, { status: 400 })
+            return NextResponse.json({ error: 'Missing augmentation parameters' }, { status: 400 });
           }
-          if (!apiKeys.OPENAI_API_KEY) {
-            return NextResponse.json({ error: 'OpenAI API key is not provided' }, { status: 400 })
-          }
-          result = await augment_data(data, augmentationFactor, augmentationPrompt, selectedColumn, apiKeys.OPENAI_API_KEY)
+          result = await augment_data(data, augmentationFactor, augmentationPrompt, selectedColumn, apiKeys);
           break
         default:
           return NextResponse.json({ error: 'Invalid action' }, { status: 400 })

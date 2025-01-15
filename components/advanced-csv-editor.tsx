@@ -92,8 +92,7 @@ export default function AdvancedCSVEditor() {
  const [isVisualizationModalOpen, setIsVisualizationModalOpen] = useState(false)
  const [isLLMEvaluationModalOpen, setIsLLMEvaluationModalOpen] = useState(false)
  const [expandedCell, setExpandedCell] = useState<ExpandedCellType | null>(null)
- const [isAPIKeyModalOpen, setIsAPIKeyModalOpen] = useState(true)
- const [isAPIKeySet, setIsAPIKeySet] = useState(false)
+ const [isAPIKeyModalOpen, setIsAPIKeyModalOpen] = useState(false)
  const [selectedRows, setSelectedRows] = useState<number[]>([]) // Added
  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false) // Added
 
@@ -103,8 +102,8 @@ export default function AdvancedCSVEditor() {
    setIsModalOpen(true)
  }
 
- const handleModalConfirm = (systemPrompt: string, userInput: string, modelName: string) => {
-   handleAction('inference', data, headers, setData, setHeaders, setColumnWidths, setColumnTypes, systemPrompt, userInput, undefined, undefined, undefined, undefined, modelName)
+ const handleModalConfirm = (systemPrompt: string, userInput: string, modelName: string, hostUrl: string, selectedProvider: string) => {
+   handleAction('inference', data, headers, setData, setHeaders, setColumnWidths, setColumnTypes, systemPrompt, userInput, undefined, undefined, undefined, undefined, modelName, hostUrl, selectedProvider)
  }
 
  const handleAugmentationModal = () => {
@@ -171,17 +170,12 @@ export default function AdvancedCSVEditor() {
   // API 키 설정 함수
   const handleAPIKeySave = (keys: APIKeys) => {
     setApiKeys(keys)
-    setIsAPIKeySet(true)
     setIsAPIKeyModalOpen(false)
   }
 
   // 파일 업로드 핸들러
   const handleFileUploadWrapper = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (isAPIKeySet) {
-      handleFileUpload(event)
-    } else {
-      setIsAPIKeyModalOpen(true)
-    }
+    handleFileUpload(event)
   }
 
  const handleRowSelection = (rowIndex: number) => {
@@ -219,11 +213,7 @@ const confirmDeleteSelectedRows = () => { // Added
        accept=".csv" 
        onChange={handleFileUploadWrapper} 
        className="mb-4" 
-       disabled={!isAPIKeySet}
-     />
-     {!isAPIKeySet && (
-       <p className="text-red-500 mb-4">API 키를 설정해야 파일을 업로드할 수 있습니다.</p>
-     )}
+       />
      {error && (
        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
          <strong className="font-bold">Error: </strong>
@@ -408,6 +398,7 @@ const confirmDeleteSelectedRows = () => { // Added
        onClose={() => setIsModalOpen(false)}
        onConfirm={handleModalConfirm}
        columns={headers}
+       providers={apiKeys.providers}
      />
      <AugmentationModal
        isOpen={isAugmentModalOpen}
@@ -463,7 +454,7 @@ const confirmDeleteSelectedRows = () => { // Added
       )}
       <APIKeySettingsModal
         isOpen={isAPIKeyModalOpen}
-        onClose={() => isAPIKeySet && setIsAPIKeyModalOpen(false)}
+        onClose={() => setIsAPIKeyModalOpen(false)}
         onSave={handleAPIKeySave}
         initialKeys={apiKeys}
       />

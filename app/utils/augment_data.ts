@@ -1,9 +1,12 @@
 import { OpenAI } from 'openai'
+import { APIKeys } from '@/components/APIKeySettingsModal'
 
-export async function augment_data(data: any[], augmentationFactor: number, augmentationPrompt: string, selectedColumn: string, openaiApiKey: string): Promise<any[]> {
-  if (!openaiApiKey) {
+export async function augment_data(data: any[], augmentationFactor: number, augmentationPrompt: string, selectedColumn: string, apiKeys: APIKeys): Promise<any[]> {
+  const openaiProvider = apiKeys.providers.find(provider => provider.name === 'openai');
+  if (!openaiProvider || !openaiProvider.bearerToken) {
     throw new Error("OpenAI API key is not provided");
   }
+  const openaiApiKey = openaiProvider.bearerToken;
   if (!data || data.length === 0) {
     throw new Error("No data provided for augmentation")
   }

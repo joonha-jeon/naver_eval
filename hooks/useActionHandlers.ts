@@ -7,9 +7,7 @@ export function useActionHandlers() {
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 })
   const [apiKeys, setApiKeys] = useState<APIKeys>(() => ({
-    OPENAI_API_KEY: '',
-    CLIENT_ID: '',
-    CLIENT_SECRET: ''
+    providers: [{ name: 'openai', bearerToken: '' }]
   }))
 
   const handleAction = useCallback(async (
@@ -27,6 +25,8 @@ export function useActionHandlers() {
     selectedColumn?: string,
     evaluationSettings?: any,
     modelName?: string,
+    hostUrl?: string,
+    selectedProvider?: string
   ) => {
     console.log('Action request:', JSON.stringify({
       action,
@@ -36,6 +36,7 @@ export function useActionHandlers() {
       augmentationPrompt,
       selectedColumn,
       evaluationSettings,
+      apiKeys,
       ...(action === 'inference' ? { modelName } : {})
     }, null, 2));
     setIsLoading(true)
@@ -47,6 +48,13 @@ export function useActionHandlers() {
         throw new Error('Invalid or empty data array')
       }
 
+      if (action === 'augment' || action === 'evaluate') {
+        const openaiProvider = apiKeys.providers.find(provider => provider.name === 'openai');
+        if (!openaiProvider || !openaiProvider.bearerToken) {
+          throw new Error("OpenAI API key is not provided");
+        }
+      }
+
       if (action === 'augment' && !headers.includes('is_augmented')) {
         setHeaders(prevHeaders => ['is_augmented', ...prevHeaders])
         setColumnWidths(prev => ({ is_augmented: 100, ...prev }))
@@ -56,7 +64,7 @@ export function useActionHandlers() {
         }))
       }
 
-      const batchSize = 10; // 배치 크기 설정
+      const batchSize = 10;
       const totalItems = data.length;
       let processedItems = 0;
       const results: RowData[] = [];
@@ -79,6 +87,8 @@ export function useActionHandlers() {
               evaluationSettings,
               apiKeys,
               modelName,
+              hostUrl,
+              selectedProvider,
             }),
           })
 
@@ -94,7 +104,6 @@ export function useActionHandlers() {
             throw new Error('Invalid response from server')
           }
 
-          // 증강된 데이터의 is_augmented 값을 확인하고 설정합니다.
           const processedResult = result.result.map((item: any) => {
             if (action === 'augment' && item.is_augmented === undefined) {
               return { ...item, is_augmented: 'Yes' };
@@ -126,7 +135,7 @@ export function useActionHandlers() {
               is_augmented: subItem.is_augmented || 'No'
             }));
           }
-          return item;  // 이 부분을 수정했습니다.
+          return item;
         });
         setData(augmentedData);
       } else {
