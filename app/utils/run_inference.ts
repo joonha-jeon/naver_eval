@@ -48,18 +48,29 @@ async function executeChatCompletion(
   completionRequest: RequestData
 ): Promise<CompletionResponse> {
   try {
+    const axiosInstance = axios.create({
+      timeout: 30000, // 30 seconds
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${bearerToken}`
+      }
+    });
+
+    // CORS 설정 (필요한 경우)
+    axiosInstance.defaults.headers.common['Access-Control-Allow-Origin'] = '*';
+
     console.log(`Sending request to: ${hostUrl}`);
     console.log('Request data:', JSON.stringify(completionRequest, null, 2));
+    console.log('API Request:', JSON.stringify({
+      url: hostUrl,
+      method: 'POST',
+      headers: axiosInstance.defaults.headers,
+      data: completionRequest
+    }, null, 2));
 
-    const response = await axios.post<CompletionResponse>(
+    const response = await axiosInstance.post<CompletionResponse>(
       `${hostUrl}`,
-      completionRequest,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${bearerToken}`
-        }
-      }
+      completionRequest
     );
 
     console.log('Response status:', response.status);
@@ -67,15 +78,14 @@ async function executeChatCompletion(
 
     return response.data;
   } catch (error) {
+    console.error('Error in API call:', error);
     if (axios.isAxiosError(error)) {
       console.error('Axios error:', error.message);
       console.error('Status:', error.response?.status);
       console.error('Response data:', error.response?.data);
       console.error('Request config:', error.config);
-    } else {
-      console.error('Unexpected error:', error);
     }
-    throw error;
+    throw new Error(`Error occurred during inference: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
