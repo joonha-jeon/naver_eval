@@ -49,7 +49,7 @@ async function executeChatCompletion(
 ): Promise<CompletionResponse> {
   try {
     const axiosInstance = axios.create({
-      timeout: 60000, // Increase timeout to 60 seconds
+      timeout: 60000, // 60 seconds timeout
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${bearerToken}`
