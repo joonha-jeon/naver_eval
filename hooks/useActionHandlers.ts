@@ -143,31 +143,36 @@ export function useActionHandlers() {
       }
 
       // Handle column updates for different actions
-      if (action === 'inference' && !headers.includes('assistant')) {
-        const userInputIndex = headers.indexOf(userInput || '');
-        if (userInputIndex !== -1) {
-          setHeaders(prevHeaders => {
-            const newHeaders = [...prevHeaders];
-            newHeaders.splice(userInputIndex + 1, 0, 'assistant');
-            return newHeaders;
-          });
-          setColumnWidths(prev => {
-            const newWidths = { ...prev };
-            const entries = Object.entries(newWidths);
-            entries.splice(userInputIndex + 1, 0, ['assistant', 200]);
-            return Object.fromEntries(entries);
-          });
-          setColumnTypes(prev => {
-            const newTypes = { ...prev };
-            const entries = Object.entries(newTypes);
-            entries.splice(userInputIndex + 1, 0, ['assistant', { type: 'text' }]);
-            return Object.fromEntries(entries);
-          });
-        } else {
-          setHeaders(prevHeaders => [...prevHeaders, 'assistant']);
-          setColumnWidths(prev => ({ ...prev, assistant: 200 }));
-          setColumnTypes(prev => ({ ...prev, assistant: { type: 'text' } }));
+      if (action === 'inference' && modelName) {
+        const newColumnName = `${modelName}_assistant`;
+        if (!headers.includes(newColumnName)) {
+          const userInputIndex = headers.indexOf(userInput || '');
+          if (userInputIndex !== -1) {
+            setHeaders(prevHeaders => {
+              const newHeaders = [...prevHeaders];
+              newHeaders.splice(userInputIndex + 1, 0, newColumnName);
+              return newHeaders;
+            });
+            setColumnWidths(prev => {
+              const newWidths = { ...prev };
+              const entries = Object.entries(newWidths);
+              entries.splice(userInputIndex + 1, 0, [newColumnName, 200]);
+              return Object.fromEntries(entries);
+            });
+            setColumnTypes(prev => {
+              const newTypes = { ...prev };
+              const entries = Object.entries(newTypes);
+              entries.splice(userInputIndex + 1, 0, [newColumnName, { type: 'text' }]);
+              return Object.fromEntries(entries);
+            });
+          } else {
+            setHeaders(prevHeaders => [...prevHeaders, newColumnName]);
+            setColumnWidths(prev => ({ ...prev, [newColumnName]: 200 }));
+            setColumnTypes(prev => ({ ...prev, [newColumnName]: { type: 'text' } }));
+          }
         }
+        
+        console.log(`Added new column: ${newColumnName}`);
       }
       
       if (action === 'evaluate') {
@@ -189,7 +194,10 @@ export function useActionHandlers() {
     } catch (error) {
       console.error('Error in handleAction:', error)
       setError(error instanceof Error ? error.message : 'An unknown error occurred')
-      setData(prevData => prevData.map(row => ({ ...row, assistant: 'Error occurred during processing' })))
+      if (action === 'inference' && modelName) {
+        const newColumnName = `${modelName}_assistant`;
+        setData(prevData => prevData.map(row => ({ ...row, [newColumnName]: 'Error occurred during processing' })))
+      }
     } finally {
       setIsLoading(false)
       setProgress({ current: 0, total: 0 })

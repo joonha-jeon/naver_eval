@@ -281,7 +281,7 @@ const confirmDeleteSelectedRows = () => { // Added
                        <th key={index} scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 relative" style={{ width: `${columnWidths[header]}px`, minWidth: `${columnWidths[header]}px` }}>
                          <div className="flex items-center justify-between pr-4">
                            <span>{header}</span>
-                           {header !== 'LLM_Eval' && header !== 'LLM_Eval 근거' && (
+                           {!header.endsWith('_assistant') && header !== 'LLM_Eval' && header !== 'LLM_Eval 근거' && (
                              <Button
                                variant="ghost"
                                size="icon"

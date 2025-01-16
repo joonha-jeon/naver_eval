@@ -2,7 +2,6 @@ import axios from 'axios';
 
 interface DataRow {
   [key: string]: string | undefined;
-  assistant?: string;
 }
 
 interface RequestData {
@@ -138,19 +137,22 @@ export async function run_inference(
         
         console.log('API Response:', JSON.stringify(result, null, 2))
       
+        const newColumnName = `${modelName}_assistant`;
         if (result.choices && result.choices[0]?.message?.content) {
-          row['assistant'] = result.choices[0].message.content.trim();
+          row[newColumnName] = result.choices[0].message.content.trim();
         } else if (result.result?.message?.content) {
-          row['assistant'] = result.result.message.content.trim();
+          row[newColumnName] = result.result.message.content.trim();
         } else {
           console.error('Unexpected response structure:', result);
           throw new Error(`Unexpected response format: ${JSON.stringify(result)}`);
         }
+        console.log(`Added inference result to column: ${newColumnName}`);
 
         return row;
       } catch (error) {
         console.error(`Error processing row:`, error);
-        return { ...row, assistant: `Error occurred during inference: ${error instanceof Error ? error.message : String(error)}` };
+        const newColumnName = `${modelName}_assistant`;
+        return { ...row, [newColumnName]: `Error occurred during inference: ${error instanceof Error ? error.message : String(error)}` };
       }
     }));
 
