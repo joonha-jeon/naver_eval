@@ -143,9 +143,7 @@ export default function AdvancedCSVEditor() {
    }, {} as { [key: string]: number });
 
    setColumnWidths(newColumnWidths);
-
-   // setTableWidth(newTableWidth); // Removed
- }, [headers, data]);
+}, [headers, data, setColumnWidths]);
 
  const handleLLMEvaluationConfirm = (evaluationSettings: EvaluationSettings) => {
    setIsLLMEvaluationModalOpen(false)

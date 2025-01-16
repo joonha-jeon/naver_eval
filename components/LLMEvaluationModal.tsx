@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,7 +24,7 @@ interface EvaluationSettings {
   scoreCriteria: { [key: number]: string }
 }
 
-const defaultIntroText = `에이전트의 응답을 평가하는 작업을 진행합니다. 평가를 진행할 때에는 아래의 '평가기준'을 활용해야 하며, 에이전트의 응답이 몇 점인지 평가하고, 그 근거를 제시해 주세요.`
+const defaultIntroText = `assistant의 응답을 평가하는 작업을 진행합니다. 평가를 진행할 때에는 아래의 '평가기준'을 활용해야 하며, 에이전트의 응답이 몇 점인지 평가하고, 그 근거를 제시해 주세요.`
 
 const defaultEvaluationPrompt = `
 Context:
@@ -48,28 +48,18 @@ export function LLMEvaluationModal({ isOpen, onClose, onConfirm, headers }: LLME
   const [scoreCriteria, setScoreCriteria] = useState<{ [key: number]: string }>({})
 
   useEffect(() => {
-    const newScoreCriteria: { [key: number]: string } = {}
-    for (let i = 1; i <= scoreRange; i++) {
-      newScoreCriteria[i] = scoreCriteria[i] || ''
-    }
-    setScoreCriteria(newScoreCriteria)
-  }, [scoreRange]) // Only depend on scoreRange, not scoreCriteria
+    setScoreCriteria(prevCriteria => {
+      const newScoreCriteria: { [key: number]: string } = {}
+      for (let i = 1; i <= scoreRange; i++) {
+        newScoreCriteria[i] = prevCriteria[i] || ''
+      }
+      return newScoreCriteria
+    })
+  }, [scoreRange])
 
-  const handleConfirm = () => {
-    const settings: EvaluationSettings = {
-      model,
-      selectedColumns,
-      evaluationPrompt: manualPrompt + '\n\n' + evaluationPrompt,
-      scoreRange,
-      scoreCriteria,
-    }
-    onConfirm(settings)
-  }
-
-  const updateEvaluationPrompt = () => {
+  const updateEvaluationPrompt = useCallback(() => {
     let updatedPrompt = defaultEvaluationPrompt
 
-    // Add selected columns to the context
     if (selectedColumns.length > 0) {
       const columnContext = selectedColumns.map(col => `${col}: {${col}}`).join('\n')
       updatedPrompt = updatedPrompt.replace('{context}', columnContext)
@@ -77,7 +67,6 @@ export function LLMEvaluationModal({ isOpen, onClose, onConfirm, headers }: LLME
       updatedPrompt = updatedPrompt.replace('{context}', '')
     }
 
-    // Add score criteria to the prompt
     const criteriaText = Object.entries(scoreCriteria)
       .map(([score, criteria]) => `${score}점: ${criteria}`)
       .join('\n')
@@ -86,9 +75,22 @@ export function LLMEvaluationModal({ isOpen, onClose, onConfirm, headers }: LLME
     updatedPrompt = updatedPrompt.replace('{scoreRange}', scoreRange.toString())
 
     setEvaluationPrompt(updatedPrompt)
-  }
+  }, [selectedColumns, scoreCriteria, scoreRange])
 
-  useEffect(updateEvaluationPrompt, [selectedColumns, scoreCriteria, scoreRange])
+  useEffect(() => {
+    updateEvaluationPrompt()
+  }, [updateEvaluationPrompt])
+
+  const handleConfirm = useCallback(() => {
+    const settings: EvaluationSettings = {
+      model,
+      selectedColumns,
+      evaluationPrompt: manualPrompt + '\n\n' + evaluationPrompt,
+      scoreRange,
+      scoreCriteria,
+    }
+    onConfirm(settings)
+  }, [model, selectedColumns, manualPrompt, evaluationPrompt, scoreRange, scoreCriteria, onConfirm])
 
   const handleColumnToggle = (column: string) => {
     setSelectedColumns(prev =>
