@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 interface DataRow {
   [key: string]: string | undefined;
@@ -49,27 +49,18 @@ async function executeChatCompletion(
 ): Promise<CompletionResponse> {
   try {
     const axiosInstance = axios.create({
-      timeout: 30000, // 30 seconds
+      timeout: 60000, // Increase timeout to 60 seconds
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${bearerToken}`
       }
     });
 
-    // CORS 설정 (필요한 경우)
-    axiosInstance.defaults.headers.common['Access-Control-Allow-Origin'] = '*';
-
     console.log(`Sending request to: ${hostUrl}`);
     console.log('Request data:', JSON.stringify(completionRequest, null, 2));
-    console.log('API Request:', JSON.stringify({
-      url: hostUrl,
-      method: 'POST',
-      headers: axiosInstance.defaults.headers,
-      data: completionRequest
-    }, null, 2));
 
     const response = await axiosInstance.post<CompletionResponse>(
-      `${hostUrl}`,
+      hostUrl,
       completionRequest
     );
 
@@ -80,10 +71,21 @@ async function executeChatCompletion(
   } catch (error) {
     console.error('Error in API call:', error);
     if (axios.isAxiosError(error)) {
-      console.error('Axios error:', error.message);
-      console.error('Status:', error.response?.status);
-      console.error('Response data:', error.response?.data);
-      console.error('Request config:', error.config);
+      const axiosError = error as AxiosError;
+      console.error('Axios error:', axiosError.message);
+      console.error('Status:', axiosError.response?.status);
+      console.error('Response data:', axiosError.response?.data);
+      console.error('Request config:', axiosError.config);
+      
+      if (axiosError.code === 'ECONNABORTED') {
+        throw new Error('API request timed out. Please check your network connection and try again.');
+      }
+      
+      if (axiosError.response) {
+        throw new Error(`API error: ${axiosError.response.status} - ${JSON.stringify(axiosError.response.data)}`);
+      } else if (axiosError.request) {
+        throw new Error('No response received from API. Please check your network connection and API endpoint.');
+      }
     }
     throw new Error(`Error occurred during inference: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -115,7 +117,7 @@ export async function run_inference(
     console.log('Host URL:', hostUrl);
     console.log('Model name:', modelName);
 
-    const processedData = await Promise.all(data.map(async (row) => {
+    const processedData = await Promise.all(data.map(async (row, index) => {
       try {
         const system = system_prompt ? row[system_prompt] ?? "" : ""
         const text = user_input ? row[user_input] ?? "" : ""
@@ -136,6 +138,7 @@ export async function run_inference(
           presence_penalty: 0
         }
 
+        console.log(`Processing row ${index + 1}/${data.length}`);
         console.log('Inference request:', JSON.stringify({
           modelName,
           system,
@@ -160,7 +163,7 @@ export async function run_inference(
 
         return row;
       } catch (error) {
-        console.error(`Error processing row:`, error);
+        console.error(`Error processing row ${index + 1}:`, error);
         const newColumnName = `${modelName}_assistant`;
         return { ...row, [newColumnName]: `Error occurred during inference: ${error instanceof Error ? error.message : String(error)}` };
       }
